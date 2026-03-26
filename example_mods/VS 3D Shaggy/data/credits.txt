@@ -1,0 +1,13 @@
+The Shaggy Mod
+srPerez::perez::Coder, Main artist & animator, Main composer, Co-charter::https://twitter.com/NewSrPerez::FFAE00
+MORO::moro::Artist & animator of WB Shaggy sprites\n& Chapter 5 cutscene::https://twitter.com/Moro0986::772DB5
+Pointy::pointy::Co-Charter, Betatester::https://twitter.com/PointyyESM::18257B
+Saruky::saruky::Composer of "Thunderstorm"::https://twitter.com/Saruky__::E70739
+Joan Atlas::tono::Composer of "Dissasembler"::https://twitter.com/joan_atlas::6145E0
+Soulegal::soulegal::Brazilian-Portuguese Co-Translaltor::https://twitter.com/nickstwt::CC0100
+Aizakku::aizakku::Brazilian-Portuguese Co-Translaltor::https://twitter.com/ItsAizakku::DDE1E8
+Cony::cony::Artist of the epic Shaggy close-up::https://www.instagram.com/con0mmm/::FFFAD0
+Kade Dev::kade::Original input system::https://twitter.com/KadeDeveloper::4A6747
+Sulayre::sulayre::Matt creator and Matt sprites (used in story menu)::https://twitter.com/Sulayre::B06FDC
+McChomk::mcchomk::Transcribed the OG dialogue into\nthe new dialogue file system::https://mcchomk.itch.io::D07436
+Github Credits::ghub::Check out Github contributors::https://github.com/GithubSPerez/the-shaggy-mod/graphs/contributors::0xFF00CEF1

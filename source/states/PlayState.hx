@@ -223,6 +223,7 @@ class PlayState extends MusicBeatState
 	public var notes:FlxTypedGroup<Note>;
 	public var unspawnNotes:Array<Note> = [];
 	public var eventNotes:Array<EventNote> = [];
+	static final CHANGE_MANIA_EVENT_NAMES:Array<String> = ['Change Mania', 'Change Key Count', 'Change Keycount'];
 
 	public var camFollow:FlxObject;
 	private static var prevCamFollow:FlxObject;
@@ -1209,15 +1210,7 @@ class PlayState extends MusicBeatState
 			noteGroup.add(grpHoldSplashes);
 			noteGroup.add(grpNoteSplashes);
 
-			keysArray = getKeysArray(Note.maniaKeys);
-
-			for (key in keysArray) {
-				// for (bind in controls.keyboardBinds['taunt']) {
-					if (controls.keyboardBinds[key] != null && controls.keyboardBinds[key].contains(FlxKey.SPACE)) {
-						canSpaceTaunt = false;
-					}
-				// }
-			}
+			refreshKeysArray();
 		});
 
 		preloadTasks.push(() -> {
@@ -2531,6 +2524,7 @@ class PlayState extends MusicBeatState
 		noteGroup.add(notes);
 
 		var noteData:Array<SwagSection>;
+		var allEventsData:Array<Dynamic> = [];
 
 		// NEW SHIT
 		noteData = songData.notes;
@@ -2542,22 +2536,60 @@ class PlayState extends MusicBeatState
 		if (OpenFlAssets.exists(file)) {
 		#end
 			var eventsData:Array<Dynamic> = Song.loadFromJson('events' + songSuffix, songName).events;
-			for (event in eventsData) //Event Notes
-				for (i in 0...event[1].length)
-					makeEvent(event, i);
+			for (event in eventsData)
+				allEventsData.push(event);
 		}
 
 		var playingNoteCount:Float = 0;
 		// var playingTime:Float = 0;
 		var lastStrumTime:Float = 0;
+		var spamThreshold = Math.max(90, Conductor.stepCrochet * 1.35);
+		var lastHeadNoteBySide:Array<Note> = [null, null];
 
 		var isPsychRelease = (songData.format ?? '').startsWith('psych_v1');
 
-		Song.updateManiaKeys(SONG);
+		var baseChartKeys = Song.updateManiaKeys(SONG);
+		for (event in songData.events)
+			allEventsData.push(event);
 
-		if (maniaModifier == Note.maniaKeys) {
+		for (event in allEventsData) { //Event Notes
+			var eventEntries:Array<Dynamic> = cast event[1];
+			for (i in 0...eventEntries.length)
+				makeEvent(event, i);
+		}
+
+		var chartKeyEvents:Array<{strumTime:Float, keys:Int}> = [];
+		for (event in allEventsData) {
+			if (event == null || event[1] == null)
+				continue;
+
+			var subEvents:Array<Dynamic> = cast event[1];
+			for (subEvent in subEvents) {
+				if (subEvent == null || subEvent.length < 1 || !isChangeManiaEvent(subEvent[0]))
+					continue;
+
+				chartKeyEvents.push({
+					strumTime: event[0],
+					keys: parseManiaEventKeys(subEvent[1], subEvent[2], baseChartKeys)
+				});
+			}
+		}
+		haxe.ds.ArraySort.sort(chartKeyEvents, function(a, b):Int {
+			return Std.int(a.strumTime - b.strumTime);
+		});
+
+		var chartKeyEventIndex:Int = 0;
+		var currentChartKeys:Int = baseChartKeys;
+		while (chartKeyEventIndex < chartKeyEvents.length && chartKeyEvents[chartKeyEventIndex].strumTime <= 0) {
+			currentChartKeys = chartKeyEvents[chartKeyEventIndex].keys;
+			chartKeyEventIndex++;
+		}
+
+		if (maniaModifier == currentChartKeys) {
 			maniaModifier = null;
 		}
+		var initialGameplayKeys = maniaModifier ?? currentChartKeys;
+		resetGlobalNoteStateForKeys(initialGameplayKeys);
 
 		var dataNotes:Array<Dynamic> = [];
 		var dataNotesSection:Array<Int> = [];
@@ -2577,95 +2609,20 @@ class PlayState extends MusicBeatState
 			return Std.int(a[0] - b[0]);
 		});
 
-		function getMustPressFromRaw(section:SwagSection, rawNote:Array<Dynamic>):Bool {
+		function getMustPressFromRaw(section:SwagSection, rawNote:Array<Dynamic>, rawKeys:Int):Bool {
 			var gottaHitNote:Bool = section.mustHitSection;
 			if (!isPsychRelease) {
-				if (rawNote[1] > Note.maniaKeys - 1) {
+				if (rawNote[1] > rawKeys - 1) {
 					gottaHitNote = !section.mustHitSection;
 				}
 			}
 			else {
-				gottaHitNote = rawNote[1] < Note.maniaKeys;
+				gottaHitNote = rawNote[1] < rawKeys;
 			}
 			return gottaHitNote;
 		}
-		
-		// MULTIKEY NOTES CONVERSION ALGO!!!
-		// also shoutouts to bromaster
 
-		if (maniaModifier != null) {
-			function scaleKeyToNew(noteData:Int):Int {
-				return Math.round(noteData * ((maniaModifier - 1) / (Note.maniaKeys - 1))) % maniaModifier;
-			}
-			function scaleKeyBack(noteData:Int):Int {
-				return Math.round(noteData * ((Note.maniaKeys - 1) / (maniaModifier - 1))) % Note.maniaKeys;
-			}
-
-			var friendNotes:Array<Array<Int>> = [];
-		
-			//initial note adoption
-			if (Note.maniaKeys > maniaModifier) {
-				for (noteData in 0...Note.maniaKeys) {
-					friendNotes[noteData] ??= [];
-					friendNotes[noteData].push(scaleKeyToNew(noteData));
-				}
-			}
-			else {
-				for (newNoteData in 0...maniaModifier) {
-					friendNotes[scaleKeyBack(newNoteData)] ??= [];
-					friendNotes[scaleKeyBack(newNoteData)].push(newNoteData);
-				}
-			}
-
-			trace("NEW Note Mapping: " + friendNotes);
-
-			var notesCount:Array<Int> = [for (_ in 0...Note.maniaKeys) 0];
-			// var bonusCount:Array<Int> = [for (_ in 0...maniaModifier) 0];
-			var jackStack:Array<Int> = [-1, -1];
-			var fuckStack:Array<Int> = [-1, -1];
-
-			// var method:String = 'rando3';
-
-			function nextNoteData(daNoteData:Int, mustPress:Int) {
-				var daNoteDataFull:Int = daNoteData + (Note.maniaKeys * (mustPress));
-
-				// switch (method) {
-				// 	case 'mapping': {
-						var noteMaps = friendNotes[daNoteData];
-						if (jackStack[mustPress] == -1 || jackStack[mustPress] != daNoteData) {
-							notesCount[daNoteDataFull]++;
-						}
-						// jackStack[mustPress] = note[2] <= 0 ? daNoteData : -1;
-						jackStack[mustPress] = daNoteData;
-						return noteMaps[notesCount[daNoteDataFull] % noteMaps.length];
-			// 		}
-			// 		case 'rando3': {
-			// 			var noteMaps = friendNotes[daNoteData];
-			// 			var scaledNote = noteMaps[notesCount[daNoteDataFull]++ % noteMaps.length];
-			// 			if (fuckStack[mustPress] == scaledNote + (++bonusCount[daNoteDataFull] % 3 - 1)) {
-			// 				bonusCount[daNoteDataFull]++;
-			// 			}
-			// 			var newKey = scaledNote + (bonusCount[daNoteDataFull] % 3 - 1);
-			// 			return fuckStack[mustPress] = (Std.int(Math.abs(newKey) % (maniaModifier)));
-			// 		}
-			// 	}
-			// 	return daNoteData;
-			}
-			
-			for (i => note in dataNotes) {
-				var daNoteDataSide:Int = Std.int(Std.int(note[1]) / Note.maniaKeys);
-				var daNoteData:Int = Std.int(note[1] % Note.maniaKeys);
-				var mustPress:Int = cast getMustPressFromRaw(noteData[dataNotesSection[i]], note);
-
-				note[1] = nextNoteData(daNoteData, mustPress);
-				note[1] += maniaModifier * daNoteDataSide;
-			}
-
-			trace('Converted from: ' + Note.maniaKeys + 'k');
-			Note.maniaKeys = maniaModifier;
-		}
-
-		trace('Song Keys: ' + Note.maniaKeys + 'k');
+		trace('Song Keys: ' + initialGameplayKeys + 'k');
 
 		songSpeedType = ClientPrefs.getGameplaySetting('scrolltype');
 		switch(songSpeedType) {
@@ -2680,10 +2637,23 @@ class PlayState extends MusicBeatState
 			var daStrumTime:Float = songNotes[0];
 			if (daStrumTime > inst.length)
 				continue;
-			var daNoteData:Int = Std.int(songNotes[1] % Note.maniaKeys);
-			if (songNotes[1] < 0 || songNotes[1] > Note.maniaKeys * 2 - 1) // this should prevent most exe mods from crashing
+
+			while (chartKeyEventIndex < chartKeyEvents.length && chartKeyEvents[chartKeyEventIndex].strumTime <= daStrumTime) {
+				currentChartKeys = chartKeyEvents[chartKeyEventIndex].keys;
+				chartKeyEventIndex++;
+			}
+
+			var gameplayKeys = maniaModifier ?? currentChartKeys;
+			if (Note.maniaKeys != gameplayKeys)
+				resetGlobalNoteStateForKeys(gameplayKeys);
+
+			var rawNoteData:Int = Std.int(songNotes[1]);
+			var daNoteData:Int = Std.int(rawNoteData % currentChartKeys);
+			if (rawNoteData < 0 || rawNoteData > currentChartKeys * 2 - 1) // this should prevent most exe mods from crashing
 				continue;
-			var gottaHitNote:Bool = getMustPressFromRaw(section, songNotes);
+			var gottaHitNote:Bool = getMustPressFromRaw(section, songNotes, currentChartKeys);
+			if (maniaModifier != null)
+				daNoteData = remapNoteDataToKeys(daNoteData, currentChartKeys, gameplayKeys);
 
 			var oldNote:Note;
 			if (unspawnNotes.length > 0)
@@ -2694,7 +2664,7 @@ class PlayState extends MusicBeatState
 			var swagNote:Note = new Note(daStrumTime, daNoteData, oldNote);
 			swagNote.mustPress = gottaHitNote;
 			swagNote.sustainLength = songNotes[2];
-			swagNote.gfNote = (section.gfSection && (songNotes[1] < Note.maniaKeys));
+			swagNote.gfNote = (section.gfSection && (rawNoteData < currentChartKeys));
 			swagNote.noteType = songNotes[3];
 			if(!Std.isOfType(songNotes[3], String)) swagNote.noteType = ChartingState.noteTypeList[songNotes[3]]; //Backward compatibility + compatibility with Week 7 charts
 
@@ -2711,6 +2681,14 @@ class PlayState extends MusicBeatState
 
 			unspawnNotes.push(swagNote);
 
+			var spamSide = swagNote.mustPress ? 1 : 0;
+			var lastHeadNote = lastHeadNoteBySide[spamSide];
+			if (lastHeadNote != null && daStrumTime - lastHeadNote.strumTime <= spamThreshold) {
+				lastHeadNote.extraData.set('isSpamNote', true);
+				swagNote.extraData.set('isSpamNote', true);
+			}
+			lastHeadNoteBySide[spamSide] = swagNote;
+
 			var floorSus:Int = Math.floor(susLength);
 			if(floorSus > 0) {
 				for (susNote in 0...floorSus+1)
@@ -2719,7 +2697,7 @@ class PlayState extends MusicBeatState
 
 					var sustainNote:Note = new Note(daStrumTime + (Conductor.stepCrochet * susNote), daNoteData, oldNote, true);
 					sustainNote.mustPress = gottaHitNote;
-					sustainNote.gfNote = (section.gfSection && (songNotes[1]<Note.maniaKeys));
+					sustainNote.gfNote = (section.gfSection && (rawNoteData < currentChartKeys));
 					sustainNote.noteType = swagNote.noteType;
 					sustainNote.scrollFactor.set();
 					swagNote.tail.push(sustainNote);
@@ -2803,10 +2781,7 @@ class PlayState extends MusicBeatState
 			trace("max points: ~" + maxFP + 'FP');
 		}
 
-		for (event in songData.events) //Event Notes
-			for (i in 0...event[1].length)
-				makeEvent(event, i);
-
+		resetGlobalNoteStateForKeys(initialGameplayKeys);
 		unspawnNotes.sort(sortByTime);
 		generatedMusic = true;
 	}
@@ -2881,6 +2856,142 @@ class PlayState extends MusicBeatState
 		eventNotes.push(subEvent);
 		eventPushed(subEvent);
 		callOnScripts('onEventPushed', [subEvent.event, subEvent.value1 != null ? subEvent.value1 : '', subEvent.value2 != null ? subEvent.value2 : '', subEvent.strumTime]);
+	}
+
+	function isChangeManiaEvent(eventName:String):Bool
+	{
+		return CHANGE_MANIA_EVENT_NAMES.contains(eventName);
+	}
+
+	function parseManiaEventKeys(value1:String, value2:String, fallback:Int):Int
+	{
+		for (value in [value1, value2]) {
+			if (value == null)
+				continue;
+
+			var trimmed = StringTools.trim(value.toLowerCase());
+			if (trimmed.length < 1)
+				continue;
+
+			if (StringTools.endsWith(trimmed, 'k'))
+				trimmed = trimmed.substr(0, trimmed.length - 1);
+
+			var parsed = Std.parseInt(trimmed);
+			if (parsed != null && Note.maniaKeysList.contains(parsed))
+				return parsed;
+		}
+		return fallback;
+	}
+
+	function remapNoteDataToKeys(noteData:Int, fromKeys:Int, toKeys:Int):Int
+	{
+		if (fromKeys == toKeys)
+			return noteData;
+		if (fromKeys <= 1 || toKeys <= 1)
+			return 0;
+
+		return Math.round(noteData * ((toKeys - 1) / (fromKeys - 1))) % toKeys;
+	}
+
+	function resetGlobalNoteStateForKeys(keys:Int):Void
+	{
+		Note.maniaKeys = keys;
+		Note.globalRgbShaders = [];
+	}
+
+	function refreshKeysArray():Void
+	{
+		keysArray = getKeysArray(Note.maniaKeys);
+		canSpaceTaunt = true;
+		for (key in keysArray) {
+			if (controls.keyboardBinds[key] != null && controls.keyboardBinds[key].contains(FlxKey.SPACE)) {
+				canSpaceTaunt = false;
+			}
+		}
+	}
+
+	function cacheDefaultStrumPositions():Void
+	{
+		for (i in 0...playerStrums.length) {
+			setOnScripts('defaultPlayerStrumX' + i, playerStrums.members[i].x);
+			setOnScripts('defaultPlayerStrumY' + i, playerStrums.members[i].y);
+		}
+		for (i in 0...opponentStrums.length) {
+			setOnScripts('defaultOpponentStrumX' + i, opponentStrums.members[i].x);
+			setOnScripts('defaultOpponentStrumY' + i, opponentStrums.members[i].y);
+		}
+	}
+
+	function rebuildStrumLineForCurrentMania():Void
+	{
+		var oldStrums = strumLineNotes.members.copy();
+		strumLineNotes.clear();
+		playerStrums.clear();
+		opponentStrums.clear();
+		for (strum in oldStrums) {
+			if (strum != null)
+				strum.destroy();
+		}
+
+		if (noteUnderlays != null) {
+			var oldUnderlays = noteUnderlays.members.copy();
+			noteUnderlays.clear();
+			for (underlay in oldUnderlays) {
+				if (underlay != null)
+					underlay.destroy();
+			}
+		}
+
+		generateStaticArrows(0);
+		generateStaticArrows(1);
+		refreshKeysArray();
+		cacheDefaultStrumPositions();
+		strumsBlocked = [];
+		keysPressed = [];
+
+		#if DISCORD_ALLOWED
+		if (isCreated && health > 0) {
+			if (paused)
+				DiscordClient.changePresence(detailsPausedText, SONG.song + " (" + storyDifficultyText + ")" + ' [${Note.maniaKeys}k]' + getPresencePoints(), iconP2.getCharacter());
+			else if (Conductor.songPosition > 0)
+				DiscordClient.changePresence(detailsText, SONG.song + " (" + storyDifficultyText + ")" + ' [${Note.maniaKeys}k]' + getPresencePoints(), iconP2.getCharacter(), true, songLength - Conductor.songPosition - ClientPrefs.data.noteOffset);
+			else
+				DiscordClient.changePresence(detailsText, SONG.song + " (" + storyDifficultyText + ")" + ' [${Note.maniaKeys}k]' + getPresencePoints(), iconP2.getCharacter(), true, songLength);
+		}
+		#end
+	}
+
+	function playManiaChangeAnimOnCharacter(char:Character):Void
+	{
+		if (char == null || !char.animExists('snap'))
+			return;
+
+		char.playAnim('snap', true);
+		char.specialAnim = true;
+		char.heyTimer = 0.35;
+	}
+
+	function playManiaChangeAnimations():Void
+	{
+		playManiaChangeAnimOnCharacter(dad);
+		playManiaChangeAnimOnCharacter(boyfriend);
+		playManiaChangeAnimOnCharacter(gf);
+		for (char in characters)
+			playManiaChangeAnimOnCharacter(char);
+	}
+
+	function applyManiaChangeEvent(value1:String, value2:String):Void
+	{
+		if (maniaModifier != null)
+			return;
+
+		var newKeys = parseManiaEventKeys(value1, value2, Note.maniaKeys);
+		if (newKeys == Note.maniaKeys)
+			return;
+
+		resetGlobalNoteStateForKeys(newKeys);
+		rebuildStrumLineForCurrentMania();
+		playManiaChangeAnimations();
 	}
 
 	public static function getKeysArray(keys:Int) {
@@ -3910,6 +4021,9 @@ class PlayState extends MusicBeatState
 		if(Math.isNaN(flValue2)) flValue2 = null;
 
 		switch(eventName) {
+			case 'Change Mania' | 'Change Key Count' | 'Change Keycount':
+				applyManiaChangeEvent(value1, value2);
+
 			case 'Must Hit Camera':
 				var isFren = value1 == "gf";
 				var isDad = isFren ? (SONG.notes[curSection]?.mustHitSection ?? true) != true : value1 == "dad";
@@ -5412,10 +5526,19 @@ class PlayState extends MusicBeatState
 		
 		if(char != null && !(GameClient.isConnected() && char == gf && GameClient.getPlayerSelf().ox != 0) /*&& char.hasMissAnimations*/)
 		{
-			var suffix:String = '';
-			if(note != null) suffix = note.animSuffix;
-
-			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + 'miss' + suffix;
+			var animToPlay:String;
+			if (note != null)
+			{
+				var suffix = note.animSuffix;
+				if (suffix == null || suffix.length < 1)
+					suffix = getSpecialAnimSuffix(char, note.noteData);
+				var baseAnim = isShaggyNoteAnimCharacter(char) ? getMappedSingAnimation(note.noteData) : getDefaultSingAnimation(note.noteData);
+				animToPlay = baseAnim + 'miss' + suffix;
+			}
+			else
+			{
+				animToPlay = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, direction)))] + 'miss';
+			}
 			char.playAnim(animToPlay, true);
 			GameClient.send("charPlay", [animToPlay, char == gf]);
 			
@@ -5444,6 +5567,136 @@ class PlayState extends MusicBeatState
 
 	var opponentPopScore:Bool = false;
 	var opponentNoteHits:Int = 0;
+	var lastSpamAnimHitTimes:Map<String, Float> = [];
+
+	function getSpamAnimKey(char:Character):String
+	{
+		if (char == null)
+			return '';
+		if (char == boyfriend)
+			return 'boyfriend';
+		if (char == dad)
+			return 'dad';
+		if (char == gf)
+			return 'gf';
+		return char.curCharacter + ':' + char.isPlayer;
+	}
+
+	function isShaggyNoteAnimCharacter(char:Character):Bool
+	{
+		if (char == null || char.curCharacter == null)
+			return false;
+
+		return char.curCharacter.toLowerCase().contains('shaggy');
+	}
+
+	function getDefaultSingAnimation(noteData:Int):String
+	{
+		return singAnimations[Std.int(Math.abs(Math.min(singAnimations.length - 1, noteData)))];
+	}
+
+	function getMappedSingDirection(noteData:Int, ?keys:Null<Int>):Int
+	{
+		if (keys == null)
+			keys = Note.maniaKeys;
+		var mappings = switch (keys) {
+			case 1: [2];
+			case 2: [0, 3];
+			case 3: [0, 2, 3];
+			case 5: [0, 1, 2, 2, 3];
+			case 6: [0, 2, 3, 0, 1, 3];
+			case 7: [0, 2, 3, 2, 0, 1, 3];
+			case 8: [0, 1, 2, 3, 0, 1, 2, 3];
+			case 9: [0, 1, 2, 3, 2, 0, 1, 2, 3];
+			default: null;
+		}
+
+		if (mappings != null && noteData >= 0 && noteData < mappings.length)
+			return mappings[noteData];
+
+		var baseAnim = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length - 1, noteData)))];
+		return switch (baseAnim) {
+			case 'singLEFT': 0;
+			case 'singDOWN': 1;
+			case 'singUP' | 'singODD': 2;
+			case 'singRIGHT': 3;
+			default: 2;
+		};
+	}
+
+	function getMappedSingAnimation(noteData:Int, ?keys:Null<Int>):String
+	{
+		return switch (getMappedSingDirection(noteData, keys)) {
+			case 0: 'singLEFT';
+			case 1: 'singDOWN';
+			case 2: 'singUP';
+			case 3: 'singRIGHT';
+			default: 'singUP';
+		};
+	}
+
+	function getSpecialAnimSuffix(char:Character, noteData:Int, ?keys:Null<Int>):String
+	{
+		if (char == null || !isShaggyNoteAnimCharacter(char))
+			return '';
+
+		if (keys == null)
+			keys = Note.maniaKeys;
+		return switch (keys) {
+			case 5, 7, 9:
+				var center = Std.int(keys / 2);
+				(noteData == center && char.animExists('singUP-SPACE')) ? '-SPACE' : '';
+			case 6:
+				if (noteData == 0 && char.animExists('singLEFT-ALT'))
+					'-ALT';
+				else if (noteData == keys - 1 && char.animExists('singRIGHT-ALT'))
+					'-ALT';
+				else
+					'';
+			default:
+				'';
+		};
+	}
+
+	function getSpamAnimName(char:Character, noteData:Int, ?keys:Null<Int>):String
+	{
+		if (char == null || !isShaggyNoteAnimCharacter(char))
+			return null;
+
+		return switch (getMappedSingDirection(noteData, keys)) {
+			case 0:
+				if (char.animExists('sLeft')) 'sLeft' else if (char.animExists('singLEFTSpam')) 'singLEFTSpam' else if (char.animExists('singLEFT-SPAM')) 'singLEFT-SPAM' else null;
+			case 1:
+				if (char.animExists('sDown')) 'sDown' else if (char.animExists('singDOWNSpam')) 'singDOWNSpam' else if (char.animExists('singDOWN-SPAM')) 'singDOWN-SPAM' else null;
+			case 2:
+				if (char.animExists('sUp')) 'sUp' else if (char.animExists('singUPSpam')) 'singUPSpam' else if (char.animExists('singUP-SPAM')) 'singUP-SPAM' else null;
+			case 3:
+				if (char.animExists('sRight')) 'sRight' else if (char.animExists('singRIGHTSpam')) 'singRIGHTSpam' else if (char.animExists('singRIGHT-SPAM')) 'singRIGHT-SPAM' else null;
+			default:
+				null;
+		};
+	}
+
+	function shouldUseSpamAnim(char:Character, note:Note):Bool
+	{
+		if (char == null || note == null || note.isSustainNote)
+			return false;
+
+		var spamAnim = getSpamAnimName(char, note.noteData);
+		if (spamAnim == null || !char.animExists(spamAnim))
+			return false;
+
+		if (note.extraData.get('isSpamNote') == true)
+			return true;
+
+		var key = getSpamAnimKey(char);
+		var lastHitTime = lastSpamAnimHitTimes.get(key);
+		lastSpamAnimHitTimes.set(key, note.strumTime);
+		if (lastHitTime == null)
+			return false;
+
+		return note.strumTime - lastHitTime <= Math.max(90, Conductor.stepCrochet * 1.35);
+	}
 
 	function opponentNoteHit(note:Note, ?sid:String):Void
 	{
@@ -5483,13 +5736,19 @@ class PlayState extends MusicBeatState
 			}
 
 			var char:Character = opChar;
-			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length-1, note.noteData)))] + altAnim;
 			if(note.gfNote) {
 				char = gf;
 			}
+			if (altAnim == null || altAnim.length < 1)
+				altAnim = getSpecialAnimSuffix(char, note.noteData);
+			var baseAnim = isShaggyNoteAnimCharacter(char) ? getMappedSingAnimation(note.noteData) : getDefaultSingAnimation(note.noteData);
+			var animToPlay:String = baseAnim + altAnim;
 
 			if(char != null && !(GameClient.isConnected() && char == gf && sid != null && playersStats.get(sid).player.ox != 0))
 			{
+				if (shouldUseSpamAnim(char, note))
+					animToPlay = getSpamAnimName(char, note.noteData);
+
 				char.playAnim(animToPlay, true);
 				char.holdTimer = 0;
 			}
@@ -5594,8 +5853,6 @@ class PlayState extends MusicBeatState
 				}
 			}
 
-			var animToPlay:String = singAnimations[Std.int(Math.abs(Math.min(singAnimations.length - 1, note.noteData)))] + altAnim;
-
 			var char:Character = self;
 			var animCheck:String = 'hey';
 			if(note.gfNote)
@@ -5603,9 +5860,16 @@ class PlayState extends MusicBeatState
 				char = gf;
 				animCheck = 'cheer';
 			}
+			if (altAnim == null || altAnim.length < 1)
+				altAnim = getSpecialAnimSuffix(char, note.noteData);
+			var baseAnim = isShaggyNoteAnimCharacter(char) ? getMappedSingAnimation(note.noteData) : getDefaultSingAnimation(note.noteData);
+			var animToPlay:String = baseAnim + altAnim;
 			
 			if(char != null && !(GameClient.isConnected() && char == gf && GameClient.getPlayerSelf().ox != 0))
 			{
+				if (shouldUseSpamAnim(char, note))
+					animToPlay = getSpamAnimName(char, note.noteData);
+
 				char.playAnim(animToPlay, true);
 				char.holdTimer = 0;
 

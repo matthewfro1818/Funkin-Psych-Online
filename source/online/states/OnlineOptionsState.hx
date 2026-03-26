@@ -157,8 +157,8 @@ class OnlineOptionsState extends MusicBeatState {
 		trustedOption.screenCenter(X);
 		trustedOption.ID = i++;
 
-		var lastOption:InputOption;
-		var recentOption:InputOption;
+		var lastOption:Null<InputOption> = null;
+		var recentOption:Null<InputOption> = null;
 		items.add(recentOption = new InputOption("Enable SSL Verification", "If checked, the game will check for valid SSL Certifications, which can lead to safer connections with downloads or rooms.\n(But It's not recommended because of Haxe\'s flawed sockets implementation.)", 
 		ClientPrefs.data.verifySSL,
 		() -> {
@@ -176,7 +176,7 @@ class OnlineOptionsState extends MusicBeatState {
 			section.setFormat("VCR OSD Mono", 25, FlxColor.WHITE, CENTER, FlxTextBorderStyle.OUTLINE, FlxColor.BLACK);
 			add(section);
 
-			var registerOption:InputOption;
+			var registerOption:Null<InputOption> = null;
 			items.add(registerOption = new InputOption("Register to the Network",
 			"Join the Psych Online Network and submit your song replays\nto the leaderboards!" + (Main.UNOFFICIAL_BUILD ? '\n(WARNING: You\'re running on a NOT OFFICIAL build)' : ''), ["Username", "Email"], (text, input) -> {
 				try {
@@ -245,7 +245,7 @@ class OnlineOptionsState extends MusicBeatState {
 		}
 		else {
 			lastOption = recentOption;
-			var recentOption:InputOption;
+			var recentOption:Null<InputOption> = null;
 			items.add(recentOption = new InputOption("Network Chat Notifications", 
 			'If checked, all messages from the Network Chat will be notified to you.\nCan be toggled with "/notify" Network command.', 
 			ClientPrefs.data.notifyOnChatMsg,
@@ -259,7 +259,7 @@ class OnlineOptionsState extends MusicBeatState {
 			recentOption.ID = i++;
 
 			lastOption = recentOption;
-			var recentOption:InputOption;
+			var recentOption:Null<InputOption> = null;
 			items.add(recentOption = new InputOption("Mute PM Notifications",
 				'If checked, PM notifications are muted.\nCan be toggled with "/notify pm" Network command.',
 				ClientPrefs.data.disablePMs, () -> {
@@ -272,7 +272,7 @@ class OnlineOptionsState extends MusicBeatState {
 			recentOption.ID = i++;
 
 			lastOption = recentOption;
-			var recentOption:InputOption;
+			var recentOption:Null<InputOption> = null;
 			items.add(recentOption = new InputOption("Mute Room Invites",
 				'If checked, room invites are muted.\nCan be toggled with "/notify roominvite" Network command.',
 				ClientPrefs.data.disableRoomInvites, () -> {
@@ -285,7 +285,7 @@ class OnlineOptionsState extends MusicBeatState {
 			recentOption.ID = i++;
 
 			lastOption = recentOption;
-			var recentOption:InputOption;
+			var recentOption:Null<InputOption> = null;
 			items.add(recentOption = new InputOption("Notify when Friend is Online",
 				'If checked, you\'ll receive a notification when your friend goes online.\nCan be toggled with "/notify friend" Network command.',
 				ClientPrefs.data.friendOnlineNotification, () -> {

@@ -23,7 +23,7 @@ class StrumNote extends FlxSprite
 	private function set_texture(value:String):String {
 		if(texture != value) {
 			Note.colArray = Note.getColArrayFromKeys();
-			if (Note.colArray[noteData % Note.maniaKeys] == 'odd' && !value.endsWith('_ODD')) {
+			if (!Note.shouldUseShaggy3DTexture(value) && Note.colArray[noteData % Note.maniaKeys] == 'odd' && !value.endsWith('_ODD')) {
 				value = value + '_ODD';
 			}
 			texture = value;
@@ -60,7 +60,7 @@ class StrumNote extends FlxSprite
 
 		var skin:String = null;
 		if(PlayState.SONG != null && PlayState.SONG.arrowSkin != null && PlayState.SONG.arrowSkin.length > 1) skin = PlayState.SONG.arrowSkin;
-		else skin = Note.defaultNoteSkin;
+		else skin = Note.shouldUseShaggy3DNotes() ? Note.shaggy3DNoteSkin : Note.defaultNoteSkin;
 
 		var customSkin:String = skin + Note.getNoteSkinPostfix(mustPress);
 		if(Paths.fileExists('images/$customSkin.png', IMAGE)) skin = customSkin;
@@ -111,11 +111,19 @@ class StrumNote extends FlxSprite
 				Note.colArray = Note.getColArrayFromKeys(true);
 			}
 
-			animation.addByPrefix('green', 'arrowUP');
-			animation.addByPrefix('blue', 'arrowDOWN');
-			animation.addByPrefix('purple', 'arrowLEFT');
-			animation.addByPrefix('red', 'arrowRIGHT');
-			animation.addByPrefix('odd', 'arrowODD');
+			if (Note.shouldUseShaggy3DTexture(texture)) {
+				animation.addByPrefix('green', 'arrowUP');
+				animation.addByPrefix('blue', 'arrowDOWN');
+				animation.addByPrefix('purple', 'arrowLEFT');
+				animation.addByPrefix('red', 'arrowRIGHT');
+				animation.addByPrefix('odd', 'arrowSPACE');
+			} else {
+				animation.addByPrefix('green', 'arrowUP');
+				animation.addByPrefix('blue', 'arrowDOWN');
+				animation.addByPrefix('purple', 'arrowLEFT');
+				animation.addByPrefix('red', 'arrowRIGHT');
+				animation.addByPrefix('odd', 'arrowODD');
+			}
 
 			antialiasing = ClientPrefs.data.antialiasing;
 			setGraphicSize(Std.int(width * 0.7 * Note.noteScale));
@@ -144,10 +152,17 @@ class StrumNote extends FlxSprite
 	}
 
 	function addLeft() {
+		var shaggyStatic = Note.getShaggy3DStrumAnim(noteData, 0);
 		if (PlayState.isPixelStage) {
 			animation.add('static', [0]);
 			animation.add('pressed', [4, 8], 12, false);
 			animation.add('confirm', [12, 16], 24, false);
+			return;
+		}
+		if (Note.shouldUseShaggy3DTexture(texture) && shaggyStatic != null) {
+			animation.addByPrefix('static', Note.getShaggy3DStrumAnim(noteData, 0));
+			animation.addByPrefix('pressed', Note.getShaggy3DStrumAnim(noteData, 2), 24, false);
+			animation.addByPrefix('confirm', Note.getShaggy3DStrumAnim(noteData, 1), 24, false);
 			return;
 		}
 		animation.addByPrefix('static', 'arrowLEFT');
@@ -156,10 +171,17 @@ class StrumNote extends FlxSprite
 	}
 
 	function addDown() {
+		var shaggyStatic = Note.getShaggy3DStrumAnim(noteData, 0);
 		if (PlayState.isPixelStage) {
 			animation.add('static', [1]);
 			animation.add('pressed', [5, 9], 12, false);
 			animation.add('confirm', [13, 17], 24, false);
+			return;
+		}
+		if (Note.shouldUseShaggy3DTexture(texture) && shaggyStatic != null) {
+			animation.addByPrefix('static', Note.getShaggy3DStrumAnim(noteData, 0));
+			animation.addByPrefix('pressed', Note.getShaggy3DStrumAnim(noteData, 2), 24, false);
+			animation.addByPrefix('confirm', Note.getShaggy3DStrumAnim(noteData, 1), 24, false);
 			return;
 		}
 		animation.addByPrefix('static', 'arrowDOWN');
@@ -168,10 +190,17 @@ class StrumNote extends FlxSprite
 	}
 
 	function addUp() {
+		var shaggyStatic = Note.getShaggy3DStrumAnim(noteData, 0);
 		if (PlayState.isPixelStage) {
 			animation.add('static', [2]);
 			animation.add('pressed', [6, 10], 12, false);
 			animation.add('confirm', [14, 18], 12, false);
+			return;
+		}
+		if (Note.shouldUseShaggy3DTexture(texture) && shaggyStatic != null) {
+			animation.addByPrefix('static', Note.getShaggy3DStrumAnim(noteData, 0));
+			animation.addByPrefix('pressed', Note.getShaggy3DStrumAnim(noteData, 2), 24, false);
+			animation.addByPrefix('confirm', Note.getShaggy3DStrumAnim(noteData, 1), 24, false);
 			return;
 		}
 		animation.addByPrefix('static', 'arrowUP');
@@ -180,10 +209,17 @@ class StrumNote extends FlxSprite
 	}
 
 	function addRight() {
+		var shaggyStatic = Note.getShaggy3DStrumAnim(noteData, 0);
 		if (PlayState.isPixelStage) {
 			animation.add('static', [3]);
 			animation.add('pressed', [7, 11], 12, false);
 			animation.add('confirm', [15, 19], 24, false);
+			return;
+		}
+		if (Note.shouldUseShaggy3DTexture(texture) && shaggyStatic != null) {
+			animation.addByPrefix('static', Note.getShaggy3DStrumAnim(noteData, 0));
+			animation.addByPrefix('pressed', Note.getShaggy3DStrumAnim(noteData, 2), 24, false);
+			animation.addByPrefix('confirm', Note.getShaggy3DStrumAnim(noteData, 1), 24, false);
 			return;
 		}
 		animation.addByPrefix('static', 'arrowRIGHT');
@@ -192,6 +228,7 @@ class StrumNote extends FlxSprite
 	}
 
 	function addOdd() {
+		var shaggyStatic = Note.getShaggy3DStrumAnim(noteData, 0);
 		if (!Note.colArray.contains('odd')) {
 			addUp();
 			return;
@@ -201,6 +238,12 @@ class StrumNote extends FlxSprite
 			animation.add('static', [0]);
 			animation.add('pressed', [1, 2], 12, false);
 			animation.add('confirm', [3, 4], 24, false);
+			return;
+		}
+		if (Note.shouldUseShaggy3DTexture(texture) && shaggyStatic != null) {
+			animation.addByPrefix('static', Note.getShaggy3DStrumAnim(noteData, 0));
+			animation.addByPrefix('pressed', Note.getShaggy3DStrumAnim(noteData, 2), 24, false);
+			animation.addByPrefix('confirm', Note.getShaggy3DStrumAnim(noteData, 1), 24, false);
 			return;
 		}
 		animation.addByPrefix('static', 'arrowODD');

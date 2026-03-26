@@ -102,6 +102,91 @@ class Note extends FlxSprite
 
 	public static var colArray:Array<String> = ['purple', 'blue', 'green', 'red'];
 	public static var defaultNoteSkin(default, never):String = 'noteSkins/NOTE_assets';
+	public static var shaggy3DNoteSkin(default, never):String = 'game/notes/3d';
+
+	public static function isShaggyCharacterName(name:String):Bool
+	{
+		return name != null && name.toLowerCase().contains('shaggy');
+	}
+
+	public static function shouldUseShaggy3DNotes():Bool
+	{
+		var state = PlayState.instance;
+		if (state == null)
+			return false;
+
+		for (char in [state.dad, state.boyfriend, state.gf]) {
+			if (isShaggyCharacterName(char?.curCharacter))
+				return true;
+		}
+
+		if (state.characters != null) {
+			for (char in state.characters) {
+				if (isShaggyCharacterName(char?.curCharacter))
+					return true;
+			}
+		}
+		return false;
+	}
+
+	public static function shouldUseShaggy3DTexture(texture:String):Bool
+	{
+		return texture != null && texture.toLowerCase() == shaggy3DNoteSkin;
+	}
+
+	static function getShaggy3DStrumLayout(?keys:Null<Int>):Array<Array<String>>
+	{
+		if (keys == null)
+			keys = maniaKeys;
+
+		return switch (keys) {
+			case 1: [['arrowSPACE', 'E confirm', 'E press']];
+			case 2: [['arrowLEFT', 'A confirm', 'A press'], ['arrowRIGHT', 'D confirm', 'D press']];
+			case 3: [['arrowLEFT', 'A confirm', 'A press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowRIGHT', 'D confirm', 'D press']];
+			case 4: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press']];
+			case 5: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press']];
+			case 6: [['alt arrowLEFT', 'alt A confirm', 'alt A press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'B confirm', 'B press'], ['alt arrowright', 'I confirm', 'I press']];
+			case 7: [['arrowLEFT', 'A confirm', 'A press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowRIGHT', 'I confirm', 'I press']];
+			case 8: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'G confirm', 'G press'], ['arrowUP', 'H confirm', 'H press'], ['arrowRIGHT', 'I confirm', 'I press']];
+			case 9: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'G confirm', 'G press'], ['arrowUP', 'H confirm', 'H press'], ['arrowRIGHT', 'I confirm', 'I press']];
+			default: null;
+		};
+	}
+
+	static function getShaggy3DNoteLayout(?keys:Null<Int>):Array<Array<String>>
+	{
+		if (keys == null)
+			keys = maniaKeys;
+
+		return switch (keys) {
+			case 1: [['E0', 'E hold', 'E tail']];
+			case 2: [['A0', 'A hold', 'A tail'], ['D0', 'D hold', 'D tail']];
+			case 3: [['A0', 'A hold', 'A tail'], ['E0', 'E hold', 'E tail'], ['D0', 'D hold', 'D tail']];
+			case 4: [['A0', 'A hold', 'A tail'], ['B0', 'B hold', 'B tail'], ['C0', 'C hold', 'C tail'], ['D0', 'D hold', 'D tail']];
+			case 5: [['A0', 'A hold', 'A tail'], ['B0', 'B hold', 'B tail'], ['E0', 'E hold', 'E tail'], ['C0', 'C hold', 'C tail'], ['D0', 'D hold', 'D tail']];
+			case 6: [['alt A0', 'A hold', 'A tail'], ['C0', 'C hold', 'C tail'], ['D0', 'D hold', 'D tail'], ['F0', 'F hold', 'F tail'], ['B0', 'B hold', 'B tail'], ['I0', 'I hold', 'I tail']];
+			case 7: [['A0', 'A hold', 'A tail'], ['C0', 'C hold', 'C tail'], ['D0', 'D hold', 'D tail'], ['E0', 'E hold', 'E tail'], ['F0', 'F hold', 'F tail'], ['B0', 'B hold', 'B tail'], ['I0', 'I hold', 'I tail']];
+			case 8: [['A0', 'A hold', 'A tail'], ['B0', 'B hold', 'B tail'], ['C0', 'C hold', 'C tail'], ['D0', 'D hold', 'D tail'], ['F0', 'F hold', 'F tail'], ['G0', 'G hold', 'G tail'], ['H0', 'H hold', 'H tail'], ['I0', 'I hold', 'I tail']];
+			case 9: [['A0', 'A hold', 'A tail'], ['B0', 'B hold', 'B tail'], ['C0', 'C hold', 'C tail'], ['D0', 'D hold', 'D tail'], ['E0', 'E hold', 'E tail'], ['F0', 'F hold', 'F tail'], ['G0', 'G hold', 'G tail'], ['H0', 'H hold', 'H tail'], ['I0', 'I hold', 'I tail']];
+			default: null;
+		};
+	}
+
+	public static function getShaggy3DStrumAnim(noteData:Int, animIndex:Int, ?keys:Null<Int>):String
+	{
+		var layout = getShaggy3DStrumLayout(keys);
+		if (layout == null || noteData < 0 || noteData >= layout.length)
+			return null;
+		return layout[noteData][animIndex];
+	}
+
+	public static function getShaggy3DNoteAnim(noteData:Int, animIndex:Int, ?keys:Null<Int>):String
+	{
+		var layout = getShaggy3DNoteLayout(keys);
+		if (layout == null || noteData < 0 || noteData >= layout.length)
+			return null;
+		return layout[noteData][animIndex];
+	}
 
 	public var noteSplashData:NoteSplashData = {
 		disabled: false,
@@ -412,9 +497,9 @@ class Note extends FlxSprite
 		if(texture.length < 1) {
 			skin = PlayState.SONG != null ? PlayState.SONG.arrowSkin : null;
 			if (skin == null || skin.length < 1 || skin == "NOTE_assets") {
-				skin = defaultNoteSkin + postfix;
+				skin = (shouldUseShaggy3DNotes() ? shaggy3DNoteSkin : defaultNoteSkin) + postfix;
 
-				lastTexture = defaultNoteSkin;
+				lastTexture = shouldUseShaggy3DNotes() ? shaggy3DNoteSkin : defaultNoteSkin;
 				lastPostfix = postfix;
 			} else {
 				lastTexture = '';
@@ -468,8 +553,9 @@ class Note extends FlxSprite
 				offsetX -= _lastNoteOffX;
 			}
 		} else {
-			frames = Paths.getSparrowAtlas(skin + (colArray[noteData] == 'odd' ? '_ODD' : ''));
-			if (frames == null && colArray[noteData] == 'odd') {
+			var useShaggy3DTexture = shouldUseShaggy3DTexture(skin);
+			frames = Paths.getSparrowAtlas(skin + (!useShaggy3DTexture && colArray[noteData] == 'odd' ? '_ODD' : ''));
+			if (frames == null && !useShaggy3DTexture && colArray[noteData] == 'odd') {
 				Note.colArray = getColArrayFromKeys(true);
 			}
 			frames ??= Paths.getSparrowAtlas(skin);
@@ -499,6 +585,29 @@ class Note extends FlxSprite
 	}
 
 	function loadNoteAnims() {
+		if (shouldUseShaggy3DTexture(texture) && getShaggy3DNoteAnim(noteData, isSustainNote ? 1 : 0) != null)
+		{
+			if (isSustainNote)
+			{
+				var holdEndPrefix = getShaggy3DNoteAnim(noteData, 2);
+				var holdPrefix = getShaggy3DNoteAnim(noteData, 1);
+				if (holdEndPrefix != null)
+					animation.addByPrefix(colArray[noteData] + 'holdend', holdEndPrefix, 24, true);
+				if (holdPrefix != null)
+					animation.addByPrefix(colArray[noteData] + 'hold', holdPrefix, 24, true);
+			}
+			else
+			{
+				var scrollPrefix = getShaggy3DNoteAnim(noteData, 0);
+				if (scrollPrefix != null)
+					animation.addByPrefix(colArray[noteData] + 'Scroll', scrollPrefix);
+			}
+
+			setGraphicSize(Std.int(width * 0.7 * noteScale));
+			updateHitbox();
+			return;
+		}
+
 		if (isSustainNote)
 		{
 			animation.addByPrefix('purpleholdend', 'pruple end hold', 24, true); // this fixes some retarded typo from the original note .FLA
