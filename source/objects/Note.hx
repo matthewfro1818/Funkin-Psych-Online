@@ -41,6 +41,7 @@ class Note extends FlxSprite
 	public var strumTime:Float = 0;
 	public var mustPress(default, set):Bool = false;
 	public var noteData:Int = 0;
+	public var keyCount(default, null):Int = 4;
 	public var canBeHit:Bool = false;
 	public var tooLate:Bool = false;
 	public var wasGoodHit:Bool = false;
@@ -145,7 +146,7 @@ class Note extends FlxSprite
 			case 3: [['arrowLEFT', 'A confirm', 'A press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowRIGHT', 'D confirm', 'D press']];
 			case 4: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press']];
 			case 5: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press']];
-			case 6: [['alt arrowLEFT', 'alt A confirm', 'alt A press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'B confirm', 'B press'], ['alt arrowright', 'I confirm', 'I press']];
+			case 6: [['alt arrowLEFT', 'alt A confirm', 'A press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'B confirm', 'B press'], ['alt arrowright', 'I confirm', 'I press']];
 			case 7: [['arrowLEFT', 'A confirm', 'A press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowRIGHT', 'I confirm', 'I press']];
 			case 8: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'G confirm', 'G press'], ['arrowUP', 'H confirm', 'H press'], ['arrowRIGHT', 'I confirm', 'I press']];
 			case 9: [['arrowLEFT', 'A confirm', 'A press'], ['arrowDOWN', 'B confirm', 'B press'], ['arrowUP', 'C confirm', 'C press'], ['arrowRIGHT', 'D confirm', 'D press'], ['arrowSPACE', 'E confirm', 'E press'], ['arrowLEFT', 'F confirm', 'F press'], ['arrowDOWN', 'G confirm', 'G press'], ['arrowUP', 'H confirm', 'H press'], ['arrowRIGHT', 'I confirm', 'I press']];
@@ -387,6 +388,7 @@ class Note extends FlxSprite
 		if(!inEditor) this.strumTime += ClientPrefs.data.noteOffset;
 
 		this.noteData = noteData;
+		this.keyCount = Note.maniaKeys;
 
 		if(noteData > -1) {
 			texture = '';
@@ -394,6 +396,7 @@ class Note extends FlxSprite
 			if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) rgbShader.enabled = false;
 
 			x += swagScaledWidth * (noteData);
+			var colArray = getColArray();
 			if(!isSustainNote && noteData < colArray.length) { //Doing this 'if' check to fix the warnings on Senpai songs
 				var animToPlay:String = '';
 				animToPlay = colArray[noteData % colArray.length];
@@ -412,6 +415,7 @@ class Note extends FlxSprite
 			multAlpha = ClientPrefs.data.holdAlpha;
 			hitsoundDisabled = true;
 			if(ClientPrefs.data.downScroll) flipY = true;
+			var colArray = getColArray();
 
 			offsetX += width / 2;
 			copyAngle = false;
@@ -491,7 +495,7 @@ class Note extends FlxSprite
 		if(texture == null) texture = '';
 		if(postfix == null) postfix = '';
 
-		Note.colArray = Note.getColArrayFromKeys();
+		var colArray = getColArray();
 
 		var skin:String = texture + postfix;
 		if(texture.length < 1) {
@@ -540,11 +544,11 @@ class Note extends FlxSprite
 					loadGraphic(graphic, true, Math.floor(graphic.width), Math.floor(graphic.height / 5));
 			}
 			if (graphic == null) {
-				Note.colArray = getColArrayFromKeys(true);
+				colArray = getColArray(true);
 				var graphic = Paths.image('pixelUI/' + skinPixel + skinPostfix);
 				loadGraphic(graphic, true, Math.floor(graphic.width / 4), Math.floor(graphic.height / 5));
 			}
-			loadPixelNoteAnims();
+			loadPixelNoteAnims(colArray);
 			antialiasing = false;
 
 			if(isSustainNote) {
@@ -556,10 +560,10 @@ class Note extends FlxSprite
 			var useShaggy3DTexture = shouldUseShaggy3DTexture(skin);
 			frames = Paths.getSparrowAtlas(skin + (!useShaggy3DTexture && colArray[noteData] == 'odd' ? '_ODD' : ''));
 			if (frames == null && !useShaggy3DTexture && colArray[noteData] == 'odd') {
-				Note.colArray = getColArrayFromKeys(true);
+				colArray = getColArray(true);
 			}
 			frames ??= Paths.getSparrowAtlas(skin);
-			loadNoteAnims();
+			loadNoteAnims(colArray);
 			if(!isSustainNote)
 			{
 				centerOffsets();
@@ -584,7 +588,9 @@ class Note extends FlxSprite
 		return skin;
 	}
 
-	function loadNoteAnims() {
+	function loadNoteAnims(?colArray:Array<String>) {
+		if (colArray == null)
+			colArray = getColArray();
 		if (shouldUseShaggy3DTexture(texture) && getShaggy3DNoteAnim(noteData, isSustainNote ? 1 : 0) != null)
 		{
 			if (isSustainNote)
@@ -620,7 +626,9 @@ class Note extends FlxSprite
 		updateHitbox();
 	}
 
-	function loadPixelNoteAnims() {
+	function loadPixelNoteAnims(?colArray:Array<String>) {
+		if (colArray == null)
+			colArray = getColArray();
 		if(isSustainNote)
 		{
 			animation.add(colArray[noteData] + 'holdend', [colToIndex(colArray[noteData]) + 4], 24, true);
@@ -795,6 +803,7 @@ class Note extends FlxSprite
 
 		if (isSustainNote) {
 			var animBefore:String = animation?.curAnim?.name ?? '';
+			var colArray = getColArray();
 
 			animation.play(colArray[noteData % colArray.length] + 'Scroll');
 			offsetX = width / 2;
@@ -808,5 +817,10 @@ class Note extends FlxSprite
 		}
 
 		return value;
+	}
+
+	inline function getColArray(?regularOnly:Bool = false):Array<String>
+	{
+		return Note.getColArrayFromKeys(regularOnly, keyCount);
 	}
 }

@@ -11,6 +11,7 @@ class StrumNote extends FlxSprite
 	public var rgbShader:RGBShaderReference;
 	public var resetAnim:Float = 0;
 	private var noteData:Int = 0;
+	public var keyCount(default, null):Int = 4;
 	public var direction:Float = 90;//plan on doing scroll directions soon -bb
 	public var downScroll:Bool = false;//plan on doing scroll directions soon -bb
 	public var sustainReduce:Bool = true;
@@ -22,8 +23,8 @@ class StrumNote extends FlxSprite
 	public var texture(default, set):String = null;
 	private function set_texture(value:String):String {
 		if(texture != value) {
-			Note.colArray = Note.getColArrayFromKeys();
-			if (!Note.shouldUseShaggy3DTexture(value) && Note.colArray[noteData % Note.maniaKeys] == 'odd' && !value.endsWith('_ODD')) {
+			var colArray = getColArray();
+			if (!Note.shouldUseShaggy3DTexture(value) && colArray[noteData % keyCount] == 'odd' && !value.endsWith('_ODD')) {
 				value = value + '_ODD';
 			}
 			texture = value;
@@ -34,7 +35,8 @@ class StrumNote extends FlxSprite
 
 	public var useRGBShader:Bool = true;
 	public function new(x:Float, y:Float, leData:Int, player:Int) {
-		var mustPress = player == 1;
+		keyCount = Note.maniaKeys;
+		var mustPress = PlayState.isPlayerStrumNote(player);
 
 		rgbShader = new RGBShaderReference(this, Note.initializeGlobalRGBShader(leData, mustPress));
 		rgbShader.enabled = false;
@@ -74,7 +76,7 @@ class StrumNote extends FlxSprite
 		var lastAnim:String = null;
 		if(animation.curAnim != null) lastAnim = animation.curAnim.name;
 
-		Note.colArray = Note.getColArrayFromKeys();
+		var colArray = getColArray();
 
 		if(PlayState.isPixelStage)
 		{
@@ -82,7 +84,7 @@ class StrumNote extends FlxSprite
 			if (graphic == null && texture.endsWith('_ODD')) {
 				@:bypassAccessor texture = texture.substring(0, texture.length - '_ODD'.length);
 				graphic = Paths.image('pixelUI/' + texture);
-				Note.colArray = Note.getColArrayFromKeys(true);
+				colArray = getColArray(true);
 			}
 
 			loadGraphic(graphic);
@@ -100,7 +102,7 @@ class StrumNote extends FlxSprite
 			animation.add('purple', [4]);
 			animation.add('odd', [1]);
 
-			addDirection();
+			addDirection(colArray);
 		}
 		else
 		{
@@ -108,7 +110,7 @@ class StrumNote extends FlxSprite
 			if (graphic == null && texture.endsWith('_ODD')) {
 				@:bypassAccessor texture = texture.substring(0, texture.length - '_ODD'.length);
 				frames = Paths.getSparrowAtlas(texture);
-				Note.colArray = Note.getColArrayFromKeys(true);
+				colArray = getColArray(true);
 			}
 
 			if (Note.shouldUseShaggy3DTexture(texture)) {
@@ -128,7 +130,7 @@ class StrumNote extends FlxSprite
 			antialiasing = ClientPrefs.data.antialiasing;
 			setGraphicSize(Std.int(width * 0.7 * Note.noteScale));
 
-			addDirection();
+			addDirection(colArray);
 		}
 
 		updateHitbox();
@@ -139,7 +141,9 @@ class StrumNote extends FlxSprite
 		}
 	}
 
-	function addDirection() {
+	function addDirection(?colArray:Array<String>) {
+		if (colArray == null)
+			colArray = getColArray();
 		var colDirs = [
 			'purple' => addLeft,
 			'blue' => addDown,
@@ -148,7 +152,7 @@ class StrumNote extends FlxSprite
 			'red' => addRight
 		];
 
-		colDirs.get(Note.getColArrayFromKeys()[Std.int(Math.abs(noteData) % Note.maniaKeys)])();
+		colDirs.get(colArray[Std.int(Math.abs(noteData) % keyCount)])();
 	}
 
 	function addLeft() {
@@ -229,7 +233,7 @@ class StrumNote extends FlxSprite
 
 	function addOdd() {
 		var shaggyStatic = Note.getShaggy3DStrumAnim(noteData, 0);
-		if (!Note.colArray.contains('odd')) {
+		if (!getColArray().contains('odd')) {
 			addUp();
 			return;
 		}
@@ -336,5 +340,10 @@ class StrumNote extends FlxSprite
 			return y;
 		}
 		return super.set_y(value);
+	}
+
+	inline function getColArray(?regularOnly:Bool = false):Array<String>
+	{
+		return Note.getColArrayFromKeys(regularOnly, keyCount);
 	}
 }
