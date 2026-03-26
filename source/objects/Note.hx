@@ -396,11 +396,8 @@ class Note extends FlxSprite
 			if(PlayState.SONG != null && PlayState.SONG.disableNoteRGB) rgbShader.enabled = false;
 
 			x += swagScaledWidth * (noteData);
-			var colArray = getColArray();
-			if(!isSustainNote && noteData < colArray.length) { //Doing this 'if' check to fix the warnings on Senpai songs
-				var animToPlay:String = '';
-				animToPlay = colArray[noteData % colArray.length];
-				animation.play(animToPlay + 'Scroll');
+			if(!isSustainNote && noteData < getColArray().length) { //Doing this 'if' check to fix the warnings on Senpai songs
+				animation.play(getScrollAnimName());
 			}
 		}
 
@@ -415,12 +412,11 @@ class Note extends FlxSprite
 			multAlpha = ClientPrefs.data.holdAlpha;
 			hitsoundDisabled = true;
 			if(ClientPrefs.data.downScroll) flipY = true;
-			var colArray = getColArray();
 
 			offsetX += width / 2;
 			copyAngle = false;
 
-			animation.play(colArray[noteData % colArray.length] + 'holdend');
+			animation.play(getHoldEndAnimName());
 
 			updateHitbox();
 
@@ -431,7 +427,7 @@ class Note extends FlxSprite
 
 			if (prevNote.isSustainNote)
 			{
-				prevNote.animation.play(colArray[prevNote.noteData % colArray.length] + 'hold');
+				prevNote.animation.play(prevNote.getHoldAnimName());
 
 				prevNote.scale.y *= Conductor.stepCrochet / 100 * 1.05;
 				if(createdFrom != null && createdFrom.songSpeed != null) prevNote.scale.y *= createdFrom.songSpeed;
@@ -598,15 +594,15 @@ class Note extends FlxSprite
 				var holdEndPrefix = getShaggy3DNoteAnim(noteData, 2);
 				var holdPrefix = getShaggy3DNoteAnim(noteData, 1);
 				if (holdEndPrefix != null)
-					animation.addByPrefix(colArray[noteData] + 'holdend', holdEndPrefix, 24, true);
+					animation.addByPrefix(getHoldEndAnimName(), holdEndPrefix, 24, true);
 				if (holdPrefix != null)
-					animation.addByPrefix(colArray[noteData] + 'hold', holdPrefix, 24, true);
+					animation.addByPrefix(getHoldAnimName(), holdPrefix, 24, true);
 			}
 			else
 			{
 				var scrollPrefix = getShaggy3DNoteAnim(noteData, 0);
 				if (scrollPrefix != null)
-					animation.addByPrefix(colArray[noteData] + 'Scroll', scrollPrefix);
+					animation.addByPrefix(getScrollAnimName(), scrollPrefix);
 			}
 
 			setGraphicSize(Std.int(width * 0.7 * noteScale));
@@ -803,9 +799,8 @@ class Note extends FlxSprite
 
 		if (isSustainNote) {
 			var animBefore:String = animation?.curAnim?.name ?? '';
-			var colArray = getColArray();
 
-			animation.play(colArray[noteData % colArray.length] + 'Scroll');
+			animation.play(getScrollAnimName());
 			offsetX = width / 2;
 
 			animation.play(animBefore);
@@ -822,5 +817,20 @@ class Note extends FlxSprite
 	inline function getColArray(?regularOnly:Bool = false):Array<String>
 	{
 		return Note.getColArrayFromKeys(regularOnly, keyCount);
+	}
+
+	inline function getScrollAnimName():String
+	{
+		return shouldUseShaggy3DTexture(texture) ? 'shaggy_scroll' : getColArray()[noteData] + 'Scroll';
+	}
+
+	inline function getHoldAnimName():String
+	{
+		return shouldUseShaggy3DTexture(texture) ? 'shaggy_hold' : getColArray()[noteData] + 'hold';
+	}
+
+	inline function getHoldEndAnimName():String
+	{
+		return shouldUseShaggy3DTexture(texture) ? 'shaggy_holdend' : getColArray()[noteData] + 'holdend';
 	}
 }
